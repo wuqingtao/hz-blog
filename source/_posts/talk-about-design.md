@@ -1,8 +1,18 @@
 ---
-title: hz-message构建过程
+title: 浅谈设计和架构过程
 date: 2016-12-05 21:39:35
 tags:
 ---
+
+# 前言
+
+程序员大部分的时间都集中在做某个具体功能的实现，大部分的博客和技术论坛都只是谈论着怎么实现一个具体的功能，怎么使用一个新的框架，很少涉及涉及和架构。
+
+事实上是，越来越丰富的框架、第三方模块、开源库，让我们实现一个具体功能变得容易，但是，软件的整体性能和迭代性并没有实质性的改善。
+
+原因很简单，我们没有做好设计和架构，甚至从来做过什么单元测试。
+
+我的意思是，如果我们想持续把程序员作为一个职业或者兴趣，让我们现在就开始时刻关注和提高自己的设计和架构能力。
 
 好的架构应该达到以下目的：
 * 有效缩短项目开发周期。
@@ -18,15 +28,13 @@ tags:
 * 编译自动化。
 * 部署自动化。
 
-本文将以一个简单的DEMO项目hz-message为例，逐步描述上面说的架构历程。
+本文将以一个简单的web应用的例子，串联整个软件的开始周期，描述自己对设计、架构及单元测试的理解。
 
-[hz-message](https://github.com/wuqingtao/hz-message)是一个演示项目，以多语言的方式展示了一个简单动态Web项目的设计、开发、测试和部署过程，功能类似于一个心情记事本，包括消息展示、发布和获取。
+# 需求分析
 
-# TODO: hz-message功能介绍
+假如需求是这样的：做一个web页面，功能类似于一个心情记事本，包括消息展示、发布和获取，点击[紅中随笔](http://120.55.185.245/message/)查看。
 
-# 工程目录
-
-## 工程名称
+# 工程名称
 
 工程名称将是整个项目生命周期最多被引用到的名词，所以多花点时间琢磨工程名称很要必要。
 
@@ -36,36 +44,40 @@ tags:
 * 不要用拼音或简拼。
 * 也不要过分纠结。
 
-由于该项目是一个简单的消息发布和浏览应用，messag是一个不错的选择，当然msg也不错，但是message还是太泛，我们再给他加点限制，message of hongzhong，也就是hz-message，当然hz-msg也不错，至于是-还是_，都可以。
+我们把这个工程命名为messag，当然msg也不错，但是message还是太泛，我们再给他加点限制，message of hongzhong，也就是hz-message，至于是-还是_，都可以。
 ```bash
 hz-message
 ```
 
-## 目录结构
+# 目录结构
 
-最终所有项目的源文件都讲位于各个目录中，各个文件之间互相依赖调用，我们不希望在开发过程中发现目录结构或是目录名称定义不合理再来修改，而致代码日志混乱。
+所有项目的源文件都将位于各个目录中，各个文件之间互相依赖调用，我们不希望在开发过程中发现目录结构或是目录名称定义不合理再来修改，而致代码日志混乱。
 
 目录结构的定义应该满足以下原则：
 * 各个子系统分开，如前端（web）和后端（server）。
-* 不同的组件分开，如源码（src）、测试（test）、配置（conf）和库目录（libs）。
-* 不同类型归类，如js、css，utils等。
-* 对于和src和test，应该体现层级域名的概念。
+* 每个子系统的不同组件分开，如源码（src）、测试（test）、配置（conf）和库目录（libs）。
+* 每个组件的不同类型归类，如js、css，utils等。
 
 目录名称的命名应该：
 * 遵循惯例，如html、js、css、src、test、conf、libs、utils、bin、obj、tmp等。
 * 惯例以外的名称不要过分简洁，亦不要太臃肿。
 * 忌拼音或简拼，很容易不知道是什么意思。
 
-对于hz-message，对应连个子系统，前端和后端。
+对于hz-message，前端我们命令为web，www看上去更像是一个部署目录，html不足以涵盖前端的概念。当然，在这里，更好的做法应该是app/web，app意味前端，而前端可能会有web，也可能有android和ios。测试目录是必须的，因此web具备有两个子目录src和test。src分为html、js和css不同类型，hz-message把html文件直接至于src目录下也OK，毕竟js和css都归html调用。对于test，也应该分为html、js和css，hz-message虽然仅做了部分js相关的测试，考虑后续也许会做html相关测试，所以仅有js目录。
 
-前端我们命令为web，www看上去更像是一个部署目录，html不足以涵盖前端的概念。当然，在这里，更好的做法应该是app/web，app意味前端，而前端可能会有web，也可能有android和ios。
+后端命名为server，srv好像也不错，不过我个人觉得太缩写。对于后端，虽然实际的hz-message实现了多个语言版本，这里只说java，server理所当然的分为src、test、conf和libs，conf和libs最好不要放在src下面，因为test中测试程序也可能调用conf和libs，同时也方便后续编译和打包。对于，src和test，我们增加层级域名的结构hz/message。
+
+最后看上去是这样的：
 ```bash
 hz-message
-└── web
-```
-web端具备连个组件src和test。src分为html、js和css不同类型，hz-message把html文件直接至于src目录下也OK，毕竟js和css都归html调用。对于test，也应该分为html、js和css，hz-message虽然仅做了部分js相关的测试，考虑后续也许会做html相关测试，所以仅有js目录。
-```bash
-hz-message
+├── server
+│   ├── conf
+│   ├── src
+│   │   └── hz
+│   │       └── message
+│   └── test
+│       └── hz
+│           └── message
 └── web
     ├── src
     │   ├── css
@@ -73,115 +85,23 @@ hz-message
     └── test
         └── js
 ```
-
-后端命名为server，srv好像也不错，不过我个人觉得太缩写。
-```bash
-hz-message
-└── server
-```
-
-对于后端，由于hz-message目的是技术演示，针对目前常用服务端语言，实现了四个版本（java、node、php和python），对于每种语言，又分为src、test、conf和libs，conf和libs最好不要放在src下面，因为test中测试程序也可能调用conf和libs，同时也方便后续编译和打包。对于，src和test，我们增加层级域名的结构hz/message，类似于java包结构。
-```bash
-hz-message
-├── server
-│   ├── java
-│   │   ├── conf
-│   │   ├── src
-│   │   │   └── hz
-│   │   │       └── message
-│   │   └── test
-│   │       └── hz
-│   │           └── message
-│   ├── node
-│   │   ├── src
-│   │   │   └── hz
-│   │   │       └── message
-│   │   └── test
-│   │       └── hz
-│   │           └── message
-│   ├── php
-│   │   ├── conf
-│   │   ├── libs
-│   │   ├── src
-│   │   │   └── hz
-│   │   │       └── message
-│   │   └── test
-│   │       └── hz
-│   │           └── message
-│   └── python
-│       ├── src
-│       │   └── hz
-│       │       └── message
-│       └── test
-│           └── hz
-│               └── message
-```
-最好完成的目录结构：
-```bash
-hz-message
-├── server
-│   ├── java
-│   │   ├── conf
-│   │   ├── src
-│   │   │   └── hz
-│   │   │       └── message
-│   │   └── test
-│   │       └── hz
-│   │           └── message
-│   ├── node
-│   │   ├── src
-│   │   │   └── hz
-│   │   │       └── message
-│   │   └── test
-│   │       └── hz
-│   │           └── message
-│   ├── php
-│   │   ├── conf
-│   │   ├── libs
-│   │   ├── src
-│   │   │   └── hz
-│   │   │       └── message
-│   │   └── test
-│   │       └── hz
-│   │           └── message
-│   └── python
-│       ├── src
-│       │   └── hz
-│       │       └── message
-│       └── test
-│           └── hz
-│               └── message
-└── web
-    ├── src
-    │   ├── css
-    │   └── js
-    └── test
-        └── js
-```
-
-## 目录结构
-
-OK，工程名和目录都搭建好了，我们应该及早托管，因为可能后头进一步的设计我们是分工完成的，需要代码托管平台介入了。
-
-hz-message选择GitHub。大家可以提前点击[hz-message](https://github.com/wuqingtao/hz-message)查看代码。
 
 # 模块切分
 
-我们先说server，从java服务开始。
+我们先说server。
 
-## java服务
+## Server
 
 既然是服务，我们首先需要一个模块来实现服务入口。结构的搭建是hz-message演示的重点，所以我们不会使用tomcat来帮忙，当然也不会重新从底层开始写一个服务。Servt是java服务最合适的标准，我们使用Jetty嵌入式组件来实现hz-message java服务。
 
-我们把这个模块命名为ServletServer，直接命名为Server也没问题，不过我想明确他是一个Servlet服务，而不是facgi服务。
+我们把这个模块命名为ServletServer，直接命名为Server也没问题，不过我想明确他是一个Servlet服务，而不是fcgi服务。
 ```bash
 hz-message
 └── server
-    └── java
-        └── src
-            └── hz
-                └── message
-                    └── ServletServer.java
+    └── src
+        └── hz
+            └── message
+                └── ServletServer.java
 ```
 
 ### ServletServer
@@ -190,8 +110,6 @@ hz-message
 ```java
 /**
  * Servlet服务
- * <p>
- * 基于Jetty嵌入式功能实现
  */
 public class ServletServer {
 	/**
@@ -202,20 +120,6 @@ public class ServletServer {
 		public void handle(String target, Request baseRequest,
 				HttpServletRequest request, HttpServletResponse response) throws IOException,
 				ServletException {
-	}
-
-	public static void main(String[] args) throws Exception {
-		// 创建Server，监听指定端口
-		Server server = new Server(8401);
-		
-		// 设置HTTP请求处理Handler
-		server.setHandler(new Handler());
-		
-		// 启动服务
-		server.start();
-		
-		// 等待退出
-		server.join();
 	}
 }
 ```
@@ -232,70 +136,13 @@ OK，接下来我们要在hanlde函数中处理HTTP请求了：
 * 这个参数对象谁来处理
 * 处理的结果的对象又是什么模型
 * 接着要把结果对象转换成字符串返回
-* 最后我们也要处理好各种异常
+* 我们也要处理好各种异常
+* 最后，作为整个Server的，也需要一个main函数来启动Server
 
 对于ServletServer，我们进一步演化：
 ```java
 /**
  * Servlet服务
- * <p>
- * 基于Jetty嵌入式功能实现
- */
-public class ServletServer {
-	/**
-	 * HTTP请求处理Handler
-	 */
-	private static class Handler extends AbstractHandler {
-		@Override
-		public void handle(String target, Request baseRequest,
-				HttpServletRequest request, HttpServletResponse response) throws IOException,
-				ServletException {
-			// TODO: [1]处理POST以外的不支持的HTTP method
-			
-			// TODO: [2]获取POST请求字符串参数
-			
-			// TODO: [3]将字符串参数转换为参数模型
-			
-			// TODO: [4]将参数模型传递给内部处理对象处理
-			
-			// TODO: [5]返回结果模型
-			
-			// TODO: [6]将返回结果模型转换为字符串，HTTP返回
-		}
-	}
-
-	public static void main(String[] args) throws Exception {
-		// 创建Server，监听指定端口
-		Server server = new Server(8401);
-		
-		// 设置HTTP请求处理Handler
-		server.setHandler(new Handler());
-		
-		// 启动服务
-		server.start();
-		
-		// 等待退出
-		server.join();
-	}
-}
-```
-
-对于[1]没什么好说的了，待实现。
-
-对于[2]和[6]需要的字符串，我们要定义输入和输出字符串的的协议，这里，我们定义输入和返回的协议格式为标准json字符串，具体业务规格后续体现。
-
-对于[3]和[5]涉及的参数和返回模型类，我们直接使用org.json.JSONObject，当然具体定义输入和返回的模型类，效率会更好，这里忽略。
-
-但是，我们需要一个转换模块，用于在字符串参数、字符串结果和JSONObject之间做转换，我们我们命名整个转换模块为Converter，他有两个静态函数str2json和json2str来实现转换。
-
-对于[4]，这个内部处理对象应该输入JSONObject参数，处理之后，返回一个JSONObject结果，整个内部对象将处理来自前端的所有请求，这里命名为Message，具备一个request函数。
-
-再考虑异常捕获，ServletServer变为：
-```java
-/**
- * Servlet服务
- * <p>
- * 基于Jetty嵌入式功能实现
  */
 public class ServletServer {
 	/**
@@ -330,20 +177,32 @@ public class ServletServer {
 	}
 
 	public static void main(String[] args) throws Exception {
-		// 创建Server，监听指定端口
-		Server server = new Server(8401);
+		// 创建Servlet Server，监听指定端口
+		// TODO
 		
 		// 设置HTTP请求处理Handler
-		server.setHandler(new Handler());
+		// TODO
 		
 		// 启动服务
-		server.start();
+		// TODO
 		
 		// 等待退出
-		server.join();
+		// TODO
 	}
 }
 ```
+
+对于[1]没什么好说的了，待实现。
+
+对于[2]和[6]需要的字符串，我们要定义输入和输出字符串的的协议，这里，我们定义输入和返回的协议格式为标准json字符串，具体业务规格后续体现。
+
+对于[3]和[5]涉及的参数和返回模型类，我们直接使用org.json.JSONObject，当然具体定义输入和返回的模型类，效率会更好，这里忽略。
+
+但是，我们需要一个转换模块，用于在字符串参数、字符串结果和JSONObject之间做转换，我们我们命名整个转换模块为Converter，他有两个静态函数str2json和json2str来实现转换。
+
+对于[4]，这个内部处理对象应该输入JSONObject参数，处理之后，返回一个JSONObject结果，整个内部对象将处理来自前端的所有请求，这里命名为Message，具备一个request函数。
+
+再考虑异常捕获[7]，对于期望的异常，我们应该各个角度具体实现的时候捕获他，而对于不期望的异常，意味着内部错误，比如mysqldown了，或者是一个bug，但是我们不能把这些异常抛给前端用户，因此，合适的做法在最外层捕获，同时做好日志记录（包括详细的调用栈信息），返回HTTP 500。
 
 ### Converter
 
@@ -360,7 +219,7 @@ public class Converter {
 	 * @return {json对象, {"status": "<错误状态>", "message": "<错误描述>"}}
 	 */
 	public static Object[] str2json(String str) {
-		// TODO:
+		// TODO
 	}
 
 	/**
@@ -370,12 +229,11 @@ public class Converter {
 	 * @return 字符串
 	 */
 	public static String json2str(JSONObject obj) {
-		// TODO:
+		// TODO
 	}
 }
 
 ```
-作为敏捷的原则之一，我们希望文档以标准的注释方式嵌入代码。
 
 ### Message
 
@@ -383,8 +241,7 @@ public class Converter {
 ```java
 /**
  * 消息类
- * <p>
- * 消息类用于处理用户的消息请求，包括添加、查询、修改和删除操作
+ * <p>消息类用于处理用户的消息请求，包括添加、查询、修改和删除操作
  */
 public class Message {
 	/**
@@ -395,7 +252,7 @@ public class Message {
 	 * @throws Exception 错误异常
 	 */
     public JSONObject request(JSONObject param) throws Exception {
-		// TODO:
+		// TODO
 	}
 }
 ```
@@ -421,7 +278,7 @@ Post根据功能业务，定义getCount、getAll、getById、add、modify、remo
  */
 public class Message {
 	public Message(Holder holder, Post post) {
-		// TODO:
+		// TODO
 	}
 
 	/**
@@ -862,133 +719,7 @@ public class MessageCreator {
 }
 ```
 
-### ServletServer again
-
-定义好了MessageCreator，我们回头来看ServletServer的实现，看上去应该是这样的：
-```java
-
-/**
- * Servlet服务
- * <p>
- * 基于Jetty嵌入式功能实现
- */
-public class ServletServer {
-	/**
-	 * HTTP请求处理Handler
-	 */
-	private static class Handler extends AbstractHandler {
-		/** mysql用户名 */
-		private final String _user = "root";
-		/** mysql用户密码 */
-		private final String _password = "Ningning~1";
-		/** mysql数据库名 */
-		private final String _database = "message";
-
-		/** 日志对象 */
-		private Logger _logger;
-
-		/**
-		 * 构造函数
-		 * <p>
-		 * 创建日志对象
-		 */
-		public Handler() {
-			// 获取该jar包的路径（带jar文件名）
-			String classPath = this.getClass().getProtectionDomain().getCodeSource().getLocation().getFile();
-			
-			// 创建日志目录
-			File loggerPath = new File(classPath.substring(0, classPath.lastIndexOf(File.separator) + 1) + "logs");
-			loggerPath.mkdirs();
-			
-			// 设置日志目录至环境变量，用日志配置文件访问
-			System.setProperty("log4j.file", loggerPath.getAbsolutePath());
-			
-			// 创建日志对象
-			_logger = Logger.getLogger("message");
-		}
-
-		@Override
-		public void handle(String target, Request baseRequest,
-				HttpServletRequest request, HttpServletResponse response) throws IOException,
-				ServletException {
-			// 仅支持POST请求，否则返回HTTP 501
-			if (!request.getMethod().equals("POST")) {
-				response.setStatus(HttpServletResponse.SC_NOT_IMPLEMENTED);
-				baseRequest.setHandled(true);
-				return;
-			}
-			
-			try {
-				// 获取请求参数
-				String paramStr = IOUtils.toString(request.getInputStream(), request.getCharacterEncoding());
-
-				// 将请求参数从string转换为json
-				Object[] paramErr = Converter.str2json(paramStr);
-				JSONObject param = (JSONObject) paramErr[0];
-				JSONObject err = (JSONObject) paramErr[1];
-				if (err != null) {
-					// 如果转换失败，记录日志，返回错误
-					String resultStr = Converter.json2str(err);
-					_logger.info(String.format("req:%s res:%s", paramStr, resultStr));
-					response.setStatus(HttpServletResponse.SC_OK);
-					response.setContentType("text/html; charset=utf-8");
-					IOUtils.write(resultStr, response.getOutputStream(), "utf-8");
-					baseRequest.setHandled(true);
-					return;
-				}
-								
-				// 创建Message对象
-				Message message = MessageCreator.createMessageByMysql(_user, _password, _database);
-				
-				// 处理请求
-				JSONObject result = message.request(param);
-				
-				// 关闭message对象
-				message.close();
-				
-				// 将处理结果从json转换为string，记录日志，返回
-				String resultStr = Converter.json2str(result);
-				_logger.info(String.format("req:%s res:%s", paramStr, resultStr));
-				response.setStatus(HttpServletResponse.SC_OK);
-				response.setContentType("text/html; charset=utf-8");
-				IOUtils.write(resultStr, response.getOutputStream(), "utf-8");
-				baseRequest.setHandled(true);
-			} catch (Exception e) {
-				// 如果处理结果出现异常，记录异常日志，返回HTTP 500
-				_logger.error(e, e);
-				response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-				baseRequest.setHandled(true);
-				return;
-			}
-		}
-	}
-
-	public static void main(String[] args) throws Exception {
-		// 解析命令行端口参数
-		CommandLineParser parser = new BasicParser();
-		Options options = new Options();
-		options.addOption("p", "port", true, "Listening port");
-		CommandLine commandLine = parser.parse(options, args);
-		int port = Integer.parseInt(commandLine.getOptionValue('p'));
-		
-		// 创建Server，监听指定端口
-		Server server = new Server(port);
-		
-		// 设置HTTP请求处理Handler
-		server.setHandler(new Handler());
-		
-		// 启动服务
-		server.start();
-		
-		// 等待退出
-		server.join();
-	}
-}
-```
-
-说下其中的异常捕获，对于期望的异常，我们应该各个角度具体实现的时候捕获他，而对于不期望的异常，意味着内部错误，比如mysqldown了，或者是一个bug，但是我们不能把这些异常抛给前端用户，因此，合适的做法在最外层捕获，同时做好日志记录（包括详细的调用栈信息），返回HTTP 500。
-
-# 测试
+## Server测试
 
 到此，我们把hz-messag的设计多做的七七八八了，有些都顺手实现了，接下来，我们在具体功能实现的时候，应该并行单元测试了。
 
@@ -1002,18 +733,44 @@ public class ServletServer {
 
 不想设计自顶而下，单元测试则是自下而上的实现。
 
-## CheckerTest
+### ConverteTest
 
-我们先来看CheckerTest：
+```java
+/**
+ * 测试Converter
+ */
+public class ConverterTest {
+	@Test
+	public void test_str2json() {
+		// 测试输入空的参数（null和""），返回期望值
+		// TODO
+		
+		// 测试输入非法参数（非json字符串），返回期望值
+		// TODO
+		
+		// 测试输入合法参数（json字符串），返回期望值
+		// TODO
+	}
+	
+	@Test
+	public void test_json2str() {
+		// 测试输入空参数（null），返回期望值
+		// TODO
+
+		// 测试输入合法参数，返回期望值
+		// TODO
+	}
+}
+```
+
+### CheckerTest
+
 ```java
 
 /**
  * 测试Checker
  */
 public class CheckerTest {
-	/**
-	 * 测试Checker.checkParamType()
-	 */
 	@Test
 	public void test_checkParamType() {
 		// 测试空参数
@@ -1037,9 +794,6 @@ public class CheckerTest {
 		assertTrue(res[0].equals("1234") && res[1] == null);
 	}
 	
-	/**
-	 * 测试Checker.checkParamId()
-	 */
 	@Test
 	public void test_checkParamId() {
 		// 测试空参数
@@ -1061,9 +815,6 @@ public class CheckerTest {
 		assertTrue(res[0].equals(1234) && res[1] == null);
 	}
 	
-	/**
-	 * 测试Checker.checkParamContent()
-	 */
 	@Test
 	public void test_checkParamContent() {
 		// 测试空参数
@@ -1089,227 +840,267 @@ public class CheckerTest {
 }
 ```
 
+### MysqlHolderTest
 
+我们测试的主要是接口实现，所有HolderTest不用测试了。
 
+测试，原则上我们仅覆盖接口，或者说是public方法。
 
+Java单元测试，我们使用org.junit。
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-***
-***
-***
-***
-***
-***
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-本文将以一个简单的hz-message
-
-
-
-一个项目的架构将左右
-
-
-[hz-message](https://github.com/wuqingtao/hz-message)是一个个人演示项目，以多语言的方式展示了一个简单的动态Web项目的设计、开发、测试和部署过程。
-
-功能类似于一个心情记事本，包括消息展示、发布和获取，点击[hz-message主页](http://120.55.185.245/message/)就可以完全了解其功能。
-
-本文不会讨论或涉及任何框架（如java spring、python django、php ci、node.js express等）的使用，除了必要的编译和单元测试框架，也不会研究具体功能的实现（如怎么在服务端访问mysql），分布式、并发和缓存的概念也不会体现，其目标将围绕着如何做架构、规范和单元测试展开，再给出一些总结。
-
-尽管规范、架构及测试的概念跟语言无关，但是作为演示，整个服务端还是分别以java、python、node.js和php实现了四个版本。接下来的部分，我们将分别以这四个版本为例描述我对规范、架构和测试的理解。
-
-# 团队分工
-
-假设整个项目的开发团队组成为：
-* 设计者。负责实现代码管理、架构、接口协议指定。
-* java开发者。负责实现设计者指定的各个模块的函数。
-* node.js开发者。负责实现设计者指定的各个模块的函数。
-* python开发者。负责实现设计者指定的各个模块的函数。
-* php开发者。负责实现设计者指定的各个模块的函数。
-
-# 目录结构
-
-为了快速推进项目进入开发阶段，开发者需者设计者告诉他要实现的功能模块的代码在哪儿，于是，设计者首先要建立代码目录结构。
-
-当然，实际开发工程中，我们都习惯了开发框架（如tomcat、php ci等）为我们做的一切准备工作，不用操心目录管理，但是合理的目录的设计也是架构能力的总要组成。
-
-下面是整个项目的代码目录结构：
-```bash
-hz-message
-├── server
-│   ├── java
-│   │   ├── conf
-│   │   ├── src
-│   │   │   └── hz
-│   │   │       └── message
-│   │   └── test
-│   │       └── hz
-│   │           └── message
-│   ├── node
-│   │   ├── src
-│   │   │   └── hz
-│   │   │       └── message
-│   │   └── test
-│   │       └── hz
-│   │           └── message
-│   ├── php
-│   │   ├── conf
-│   │   ├── libs
-│   │   ├── src
-│   │   │   └── hz
-│   │   │       └── message
-│   │   └── test
-│   │       └── hz
-│   │           └── message
-│   └── python
-│       ├── src
-│       │   └── hz
-│       │       └── message
-│       │           └── utils
-│       └── test
-│           └── hz
-│               └── message
-│                   └── utils
-└── web
-    ├── src
-    │   ├── css
-    │   └── js
-    └── test
-        └── js
-```
-
-建立整个目录结构的先后原则：
-* 整个工程有一个目录名。如hz-message，这个是一个顶级目录，需要首先确定。
-* 后端（server）和前端（web）目录分开。如server、web，其他的所有逻辑目录都将分属于后端和前端。
-* 不同语言的后端目录分开。如java、node、php和python，对于后端，应该首先按语言区分，因为任何后端的逻辑目录都将分属于某个语言。
-* 不同的语言的后端，配置、依赖库、源码和测试目录，方便后续打包和部署，不同的语言限于其功能和不同的包管理机制，包含的目录不同。
-	* java后端，如src、test。
-	* node后端，如src、test。
-	* php后端，如conf、libs、src、test。
-	* python后端，如src、test。
-* 前端的源码和测试目录分开，如src、test。对于该项目，前端只有web，所以server和web是平级目录，如果前端还包括Android端和IOS端，我们应该在web目录上加一层目录，如app，然后在app目录下建web、android和ios目录。
-
-# 代码管理
-
-目录结构确定后，设计者需要将整个工程目录做代码托管，该项目简单的选择GitHub作为托管平台，这里不探讨GitHub和git命令的使用。
-
-# java服务
-
-nginx和后端java服务是通过反向代理实现的，java服务作为第一个模块，需要实现服务，这里采用常用的Servlet实现（这里不讨论Servlet和fcgi的区别）。
-
-
-
-
-
-*./hz-message/server/java/hz/message/ServletServer.java*
+MysqlHolderTest的框架看上去是这样的：
 ```java
-package hz.message;
-
 /**
- * Servlet服务
- * <p>
- * 基于Jetty嵌入式功能实现
+ * 测试MysqlHolder
  */
-public class ServletServer {
-    /**
-     * HTTP请求处理Handler
-     */
-    private static class Handler extends AbstractHandler {
-        @Override
-        public void handle(String target, Request baseRequest,
-                HttpServletRequest request, HttpServletResponse response) throws IOException,
-                ServletException {
-				// 处理HTTP请求
-                // TODO:
-            }
-        }
-    }
+public class MysqlHolderTest {
+	@Test
+	public void test_inst() throws Exception {
+		// 创建MysqlHolder对象
+		// 注意：要使用测试数据库，和线网数据库分开
+		// TODO
+	
+		// 测试MysqlHolder.inst返回的对象是否为mysql连接对象
+		// TODO
+		
+		// 销毁MysqlHolder，确保测试数据库销毁，不影响其他测试
+		// TODO
+	}
+	
+	@Test
+	public void test_destroy() throws Exception {		
+		// 创建MysqlHolder对象
+		// 注意：要使用测试数据库，和线网数据库分开
+		// TODO
 
-    public static void main(String[] args) throws Exception {
-        // 解析命令行端口参数，
-        // TODO:
-        
-        // 根据指定端口，创建Server，启动Server
-		// TODO:
-    }
+		// 获取数据库连接（MysqlHolder.inst()），用于访问数据库验证detroy方法是否正确执行
+		// TODO
+
+		// 测试数据库没有销毁，通过数据连接conn直接查询数据库，比如"SHOW TABLES"，看有没有异常
+		// TODO
+
+		// 执行MysqlHolder.destroy
+		// TODO
+		
+		// 测试数据库已经销毁，通过数据连接conn直接查询数据库，比如"SHOW TABLES"，看有没有异常
+		// TODO
+	}
+	
+	@Test
+	public void test_close() throws Exception {
+		// 创建MysqlHolder对象
+		// 注意：要使用测试数据库，和线网数据库分开
+		// TODO
+
+		// 测试数据库连接没有关闭
+		// TODO
+		
+		// 执行MysqlHolder.close
+		// TODO
+		
+		// 测试数据库连接已经关闭
+		// TODO
+	}
 }
 ```
 
+### MysqlPostTest
 
+MysqlPostTest用来测试MysqlPost的接口函数，看起来是这样的。
 
+```java
 
+/**
+ * 测试MysqlPost类
+ */
+public class MysqlPostTest {
+	@Test
+    public void test_getCount() throws Exception {
+		// 创建MysqlHolder对象
+		// 创建MysqlPost对象
+		// 注意：要使用测试数据库，和线网数据库分开
+		// TODO
+	
+		// 执行MysqlPost.getCount()，测试初始post个数为0
+		// TODO
+		
+		// 添加一组测试post
+		// TODO
+		
+		// 执行MysqlPost.getCount()，测试post个数为添加的post个数
+		// TODO
+		
+		// 销毁MysqlHolder，确保测试数据库销毁，不影响其他测试
+		// TODO
+	}
 
+	@Test
+    public void test_getAll() throws Exception {
+		// 创建MysqlHolder对象
+		// 创建MysqlPost对象
+		// 注意：要使用测试数据库，和线网数据库分开
+		// TODO
 
+		// 执行MysqlPost.getAll()，测试初始的post为空
+		// TODO
 
-### 架构设计
+		// 添加一组测试post
+		// TODO
 
-### 单元测试
+		// 执行MysqlPost.getAll()
+		// 测试获取的post数组：content和添加的post数组一致，但是时间顺序依次递减，且和添加的post数组顺序相反
+		// TODO
+		
+		// 销毁MysqlHolder，确保测试数据库销毁，不影响其他测试
+		// TODO
+	}
 
-### 代码规范
+	@Test
+    public void test_getById() throws Exception {
+		// 创建MysqlHolder对象
+		// 创建MysqlPost对象
+		// 注意：要使用测试数据库，和线网数据库分开
+		// TODO
 
+        // 指定任意一个post id执行MysqlPost.getById()，测试返回期望的错误码
+		// TODO
+		
+        // 添加一组测试post，并获取所有的post（包含post id）
+		// TODO
 
-## python服务
+        // 枚举每一个post，获取post id，分别执行MysqlPost.getById()，测试返回的post数据和枚举的post一致
+		// TODO
+		
+		// 销毁MysqlHolder，确保测试数据库销毁，不影响其他测试
+		// TODO
+	}
+	
+	@Test	
+    public void test_add() throws Exception {
+		// 创建MysqlHolder对象
+		// 创建MysqlPost对象
+		// 注意：要使用测试数据库，和线网数据库分开
+		// TODO
 
-## php服务
+        // 执行MysqlPost.add()，添加一个测试post
+		// 测试返回的状态ok
+		// 测试返回的id合法
+		// 测试返回的timestamp合法
+		// 测试返回的content和添加的一致
+		// TODO
+		
+		// 销毁MysqlHolder，确保测试数据库销毁，不影响其他测试
+		// TODO
+	}
+	
+	@Test
+    public void test_modify() throws Exception {
+		// 创建MysqlHolder对象
+		// 创建MysqlPost对象
+		// 注意：要使用测试数据库，和线网数据库分开
+		// TODO
 
-## node.js服务
+        // 添加一个测试post，并获取id和timestamp
+		// TODO
 
-# 前端
+        // 根据获取的id，执行MysqlPost.modify()
+		// 测试返回的status为ok
+		// 测试后返回的timestamp和添加的timestamp一致
+		// 测试返回的content正确
+		// TODO
+		
+		// 销毁MysqlHolder，确保测试数据库销毁，不影响其他测试
+		// TODO
+	}
+
+	@Test
+    public void test_remove() throws Exception {
+		// 创建MysqlHolder对象
+		// 创建MysqlPost对象
+		// 注意：要使用测试数据库，和线网数据库分开
+		// TOD
+		
+		// 指定任意一个id，执行MysqlPost.remove()
+		// 测试返回的状态none_target
+		// TODO
+
+        // 添加一个测试post，获取post id
+		// TODO
+
+		// 获取添加的post id
+		// TODO
+
+		// 根据获取的post id，执行MysqlPost.remove()
+		// 测试返回的状态ok
+		// 测试返回的id和删除的id一致
+		// TODO
+
+		// 销毁MysqlHolder，确保测试数据库销毁，不影响其他测试
+		// TODO
+	}
+}
+```
+
+### MessageTest
+
+```java
+/**
+ * 测试Message
+ */
+public class MessageTest {
+	@Test
+    public void test_request() throws Exception {
+		// 创建Message对象
+		// 注意：创建Messae对象需要的Hodler和Post对象，可以本地模拟Holder和Post对相关，不用使用MysqlHolder和MysqlPost，MysqlHolder和MysqlPost有自己单独的测试程序
+		// TODO
+		
+        // 执行Message.request()
+		// 测试输入合法参数{"type": "get_post_count"}，返回期望值
+		// TODO
+        
+        // 执行Message.request()
+        // 测试输入合法参数{"type": "get_all_post"}，返回期望值
+		// TODO
+        
+        // 执行Message.request()
+        // 测试输入合法参数{"type": "get_post_by_id"}，返回期望值
+		// TODO
+        
+        // 执行Message.request()
+        // 测试输入合法参数{"type": "add_post"}，返回期望值
+		// TODO
+        
+        // 执行Message.request()
+        // 测试输入合法参数{"type": "modify_post"}，返回期望值
+		// TODO
+        
+        // 执行Message.request()
+        // 测试输入合法参数{"type": "remove_post"}，返回期望值
+		// TODO
+        
+        // 执行Message.request()
+        // 测试输入合法参数{"type": "other"}，返回期望值
+		// TODO
+	}
+}
+```
+
+### MessageCreatorTest
+
+```java
+/**
+ * 测试MessageCreator
+ */
+public class MessageCreatorTest {
+	@Test
+	public void test_createMessageByMysql() throws Exception {
+		// MessageCreator.createMessageByMysql，创建Message对象
+		// 测试返回的Message对象是否为空
+		// TODO
+	}
+}
+```
+
+# 后记
+
+大家可以在这里[hz-message](https://github.com/wuqingtao/hz-message)找到整个工程的实现版本，其中包含了另外的node、php和python版本，也包含了完整的部署、启停脚本。
